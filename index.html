@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP8266 API Controller</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        .container {
+            margin-top: 20px;
+        }
+
+        .section {
+            margin-bottom: 20px;
+        }
+
+        .button {
+            margin: 5px;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            background-color: #007BFF;
+            color: white;
+            cursor: pointer;
+        }
+
+        .button:hover {
+            background-color: #0056b3;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        select {
+            margin: 5px;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+
+        textarea {
+            margin: 5px;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            width: 100%;
+            height: 100px;
+        }
+
+        .response {
+            margin-top: 10px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f8f9fa;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>ESP8266 API Controller</h1>
+    <div class="container">
+        <div class="section">
+            <h2>LED Control</h2>
+            <button class="button" onclick="sendRequest('/led/on')">Turn LED On</button>
+            <button class="button" onclick="sendRequest('/led/off')">Turn LED Off</button>
+            <button class="button" onclick="sendRequest('/led/blink?times=5')">Blink LED</button>
+            <input type="number" id="ledBrightness" placeholder="Brightness (0-255)">
+            <button class="button" onclick="setLEDBrightness()">Set LED Brightness</button>
+        </div>
+        <div class="section">
+            <h2>Display Control</h2>
+            <textarea id="displayText" placeholder="Enter text to display"></textarea>
+            <input type="number" id="textSize" placeholder="Text Size (1-3)">
+            <input type="number" id="textX" placeholder="X Position">
+            <input type="number" id="textY" placeholder="Y Position">
+            <button class="button" onclick="displayText()">Display Text</button>
+            <button class="button" onclick="sendRequest('/cleanDisplay')">Clear Display</button>
+            <input type="checkbox" id="clearBeforeRender"> Clear Before Render
+            <button class="button" onclick="setClearBeforeRender()">Set Clear Before Render</button>
+        </div>
+        <div class="section">
+            <h2>Pixel Control</h2>
+            <input type="number" id="pixelX" placeholder="X Position">
+            <input type="number" id="pixelY" placeholder="Y Position">
+            <input type="number" id="pixelState" placeholder="State (0=Off, 1=On)">
+            <button class="button" onclick="setPixel()">Set Pixel</button>
+        </div>
+        <div class="section">
+            <h2>Shape Drawing</h2>
+            <select id="shapeType">
+                <option value="rect" onselect="shapeH.hidden = false">Rectangle</option>
+                <option value="circle" onselect="shapeH.hidden = true">Circle</option>
+            </select>
+            <input type="number" id="shapeX" placeholder="X Position">
+            <input type="number" id="shapeY" placeholder="Y Position">
+            <input type="number" id="shapeW" placeholder="Width/Radius">
+            <input type="number" id="shapeH" placeholder="Height (only for rectangle)">
+            <button class="button" onclick="drawShape()">Draw Shape</button>
+        </div>
+        <div class="section">
+            <h2>Text Animation</h2>
+            <textarea id="animateText" placeholder="Enter text to animate"></textarea>
+            <input type="number" id="animateSize" placeholder="Text Size (1-3)">
+            <input type="number" id="animateY" placeholder="Y Position">
+            <input type="number" id="animateRepeats" placeholder="Repeats (1-10)">
+            <button class="button" onclick="animateText()">Animate Text</button>
+        </div>
+        <div class="section">
+            <h2>2D Array Control</h2>
+            <textarea id="displayArray" placeholder="Enter 128x64 array data as a binary string"></textarea>
+            <button class="button" onclick="set2DArray()">Set 2D Array</button>
+        </div>
+    </div>
+    <div id="response" class="response"></div>
+    <script>
+        async function func(b) { return await sendRequest("/func", "POST", b, console.log); }
+        async function sendRequest(endpoint, method = 'GET', body = null, outfunc = alert) {
+            let options = { method };
+            if (body) {
+                options.headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
+                options.body = new URLSearchParams(body).toString();
+            }
+            try {
+                const response = await fetch(endpoint, options);
+                const data = await response.text();
+                outfunc(data);  // Display response in an alert box
+            } catch (error) {
+                alert('Error: ' + error);
+            }
+        }
+        function setLEDBrightness() {
+            const brightness = document.getElementById('ledBrightness').value;
+            if (brightness !== '') {
+                sendRequest('/led/brightness', 'POST', { level: brightness });
+            }
+        }
+        function displayText() {
+            const text = document.getElementById('displayText').value;
+            const size = document.getElementById('textSize').value;
+            const x = document.getElementById('textX').value;
+            const y = document.getElementById('textY').value;
+            const params = {
+                plain: text,
+                size: size,
+                x: x,
+                y: y
+            };
+            sendRequest('/display', 'POST', params);
+        }
+        function setClearBeforeRender() {
+            const clear = document.getElementById('clearBeforeRender').checked;
+            sendRequest('/clearBeforeRender', 'POST', { clear: clear });
+        }
+        function setPixel() {
+            const x = document.getElementById('pixelX').value;
+            const y = document.getElementById('pixelY').value;
+            const state = document.getElementById('pixelState').value;
+            if (x !== '' && y !== '' && state !== '') {
+                const params = {
+                    x: x,
+                    y: y,
+                    state: state
+                };
+                sendRequest('/pixel', 'POST', params);
+            }
+        }
+        function drawShape() {
+            const type = document.getElementById('shapeType').value;
+            const x = document.getElementById('shapeX').value;
+            const y = document.getElementById('shapeY').value;
+            const w = document.getElementById('shapeW').value;
+            const h = document.getElementById('shapeH').value;
+            let params = '';
+            if (type === 'rect') {
+                if (x !== '' && y !== '' && w !== '' && h !== '') {
+                    params = {
+                        type: 'rect',
+                        x: x,
+                        y: y,
+                        w: w,
+                        h: h
+                    };
+                }
+            } else if (type === 'circle') {
+                if (x !== '' && y !== '' && w !== '') {
+                    params = {
+                        type: 'circle',
+                        x: x,
+                        y: y,
+                        r: w
+                    };
+                }
+            }
+            if (params) {
+                sendRequest('/shape', 'POST', params);
+            }
+        }
+        function animateText() {
+            const text = document.getElementById('animateText').value;
+            const size = document.getElementById('animateSize').value;
+            const y = document.getElementById('animateY').value;
+            const repeats = document.getElementById('animateRepeats').value;
+            if (text !== '') {
+                const params = {
+                    text: text,
+                    size: size,
+                    y: y,
+                    repeats: repeats
+                };
+                sendRequest('/animateText', 'POST', params);
+            }
+        }
+        function set2DArray() {
+            const arrayData = document.getElementById('displayArray').value;
+            if (arrayData !== '') {
+                const params = { plain: arrayData };
+                sendRequest('/setArray', 'POST', params);
+            }
+        } 
+    </script>
+</body>
+
+</html>
