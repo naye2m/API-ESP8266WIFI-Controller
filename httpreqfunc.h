@@ -1,3 +1,7 @@
+#include <string>
+#include "c_types.h"
+#include "HardwareSerial.h"
+#include "./helper.h"
 
 // display.drawFastHLine(int16_t x, int16_t y, int16_t w, uint16_t color)
 // display.drawFastVLine(int16_t x, int16_t y, int16_t w, uint16_t color)
@@ -44,7 +48,6 @@ void disp2() {
   server.send(200, "text/plain", "Message displayed: " + message);
 }
 
-
 void qr() {
   if (!server.hasArg("text"))
     server.send(400, "text/plain", "qr is not define");
@@ -52,7 +55,6 @@ void qr() {
   // Qr(text);
   server.send(200, "text/plain", "Qr is oot available");
 }
-
 
 // Function to handle LED blinking
 void handleLEDBlink2() {
@@ -140,7 +142,7 @@ void animateText2() {
   int repeats = server.hasArg("repeats") ? server.arg("repeats").toInt() : 1;
 
   for (int r = 0; r < repeats; r++) {
-    for (int x = SCREEN_WIDTH; x >= -int(text.length() * 6 * size); x-= speed) {
+    for (int x = SCREEN_WIDTH; x >= -int(text.length() * 6 * size); x -= speed) {
       display.clearDisplay();
       display.setTextSize(size);
       display.setCursor(x, y);
@@ -192,56 +194,175 @@ void clearBeforeRender2() {
   }
 }
 
-// Function to handle function routing
-void func() {
-  if (!server.hasArg("func")) {  // Check if the func argument exists
-    server.send(400, "text/plain", "No func received");
-    return;
+void mainDecoder(String binData, int length)
+/*
+  todo : add functinalities for chenging behavior of zeros and ones
+ */
+{
+  int width = 128;   // Width of the display
+  int height = 64;   // Height of the display
+  int x = 0, y = 0;  // Starting positions for the display
+
+  // Initialize the display
+  display.clearDisplay();  // Clear display before rendering
+
+  // Inner function to update display pixel by pixel
+  // auto innerFunction = [&](int xPos, int yPos, int pixelState) {
+  //   display.drawPixel(xPos, yPos, pixelState);  // Draw pixel in white
+  //   // todo
+  //   // if (pixelState == 1)
+  //   // {
+  //   // display.drawPixel(xPos, yPos, WHITE);  // Draw pixel in white
+  //   // }
+  //   // else
+  //   // {
+  //   //   display.drawPixel(xPos, yPos, BLACK);  // Draw pixel in black
+  //   // }
+  // };
+
+  // Loop through the binary data byte by byte
+  for (int i = 0; i < length; i++) {
+    char byte = binData[i];  // Get the current byte
+    for (int bit = 0; bit < 8; bit++) {
+      int pixelState = (byte >> (7 - bit)) & 1;  // Extract each bit
+      // innerFunction(x, y, pixelState);          // Update the display
+      display.drawPixel(x, y, pixelState);  // Update the display
+
+      x++;
+      if (x >= width) {
+        x = 0;
+        y++;
+        if (y >= height) {
+          break;  // Stop if we exceed display bounds
+        }
+      }
+    }
   }
 
-  String func = server.arg("func");
+  display.display();  // Render the display
+}
+void handleByteArr2Display() {
+  /*
+  todo : add padding option for skipping bytes start and end
+  todo : add multiple way to display like pos's, st end points
+   */
+  if (!server.hasArg("data"))
+    // Send an error if no data received
+    server.send(400, "text/plain", "No bytearr data received");
+  Serial.println("////////st/////////////////////////////////////////////////////////");
 
-  if (func == "disp") {
-    disp2();
-  } else if (func == "ledBlink") {
-    handleLEDBlink2();
-  } else if (func == "ledBrightness") {
-    handleLEDBrightness2();
-  } else if (func == "pixel") {
-    handlePixel2();
-  } else if (func == "shape") {
-    handleShape2();
-  } else if (func == "animateText") {
-    animateText2();
-  } else if (func == "2DArray") {
-    handle2DArray2();
-  } else if (func == "clearBeforeRender") {
-    clearBeforeRender2();
-  } else if (func == "qr") {
-    qr();
-  } else {
-    server.send(400, "text/plain", "Unknown function: " + func);
+  uint8_t skipZeros = server.hasArg("skip0s") ? 1 : 0;
+  uint8_t _0 = server.hasArg("_0") ? server.arg("_0").toInt() : BLACK;
+  uint8_t _1 = server.hasArg("_1") ? server.arg("_1").toInt() : WHITE;
+  // todo default escape 16
+  uint8_t escape_char = (uint8_t) (server.hasArg("escape_char") ? server.arg("escape_char").toInt() & 0xff : 16);
+  // Convert the UTF-8 string from server.arg() to Latin-1
+  std::string utf8_data = server.arg("data").c_str();  // Get the argument as std::string
+
+  // Convert to ISO-8859-1 (Latin-1) using a function that returns std::string
+  std::string latin1_data = utf8_to_iso_8859_1(utf8_data);  // Ensure this returns std::string
+
+  // Convert std::string to Arduino String
+  String c_input = latin1_data.c_str();
+  String input = String(c_input);  // Use c_str() to get the C-style string
+
+  // Compute array size (min of input length or screen dimensions)
+  // int arraySize = SCREEN_WIDTH * SCREEN_HEIGHT / 8;
+  int arraySize = server.hasArg("fullscreen") ? SCREEN_WIDTH * SCREEN_HEIGHT / 8 : min((int)input.length(), (int)SCREEN_WIDTH * SCREEN_HEIGHT / 8);
+
+  // Only clear the display if we have data to process
+  if (server.hasArg("clear"))
+    display.clearDisplay();
+
+  for (int i = 0; i < arraySize; i++) {
+    uint8_t px_byte = c_input[i];
+    if (px_byte == escape_char)
+      continue;
+    if (px_byte != 0) {
+      Serial.printf("\n bytelok(i):%i, px_byte: 0x%x %b \"%c\"\n", i, px_byte, px_byte, px_byte);
+    }
+    for (int jx = 0; jx < 8; jx++) {
+      int j = (i * 8) + jx;
+      int x = j % SCREEN_WIDTH;
+      int y = j / SCREEN_WIDTH;
+      // Draw the pixel based on input (directly map to display)
+      if (!skipZeros) {
+        if ((px_byte >> (7 - jx)) & 1) {
+          display.drawPixel(x, y, _1);
+          Serial.printf("\n x:%i y:%i px:0x%x %c\n", x, y, px_byte, px_byte);
+        } else {
+          display.drawPixel(x, y, _0);
+          Serial.print(0);
+        }
+      } else if ((px_byte >> (7 - jx)) & 1)
+        display.drawPixel(x, y, _1);
+    }
   }
+
+  // Update the display once, after all pixels are drawn
+  display.display();
+
+  Serial.println(input);
+  Serial.println(input.length());
+  // Send success response
+  server.send(200, "text/plain", "Printed bytearr to disp");
+  Serial.println("////////end/////////////////////////////////////////////////////////");
+  // server.send(200, "text/plain", "2D array applied to display");
 }
 
+void set_ByteArray_to_Display() {
+  if (!server.hasArg("ByteArray")) {
+    server.send(400, "text/plain", "ByteArray required");
+    return;
+  }
+  mainDecoder(server.arg("ByteArray"), (64 * 128 / 8));
+  server.send(200, "text/plain", "ByteArray displayed");
+}
 
-// void setup() {
-//   // Initialize LED pin
-//   pinMode(ledPin, OUTPUT);
+void print2Serial() {
+  if (!server.hasArg("text")) {
+    server.send(400, "text/plain", "text required");
+    return;
+  }
+  if (!Serial)
+    Serial.begin(115200);
+  Serial.println(server.arg("text"));
+  server.send(200, "text/plain", "text displayed in serial 115200");
+}
+// Function to handle function routing
+void func() {
+  if (!server.hasArg("func")) {
+    server.send(400, "text/plain", "arg func required");
+    return;
+  }
+  const String func_name = server.arg("func");
+  const char *funcStr = func_name.c_str();  // Convert String to C-style string once for efficiency
 
-//   // Initialize the display
-//   if (!display.begin(SSD1306_I2C_ADDRESS, 0x3C)) {
-//     Serial.println(F("SSD1306 allocation failed"));
-//     for (;;);  // Infinite loop
-//   }
-//   display.display();
-//   delay(2000);  // Pause for 2 seconds
-
-//   // Initialize server routes
-//   server.on("/func", HTTP_POST, func2);
-//   server.begin();
-// }
-
-// void loop() {
-//   server.handleClient();
-// }
+  if (strcmp(funcStr, "disp") == 0) {
+    disp2();
+  } else if (strcmp(funcStr, "ledblink") == 0) {
+    handleLEDBlink2();
+  } else if (strcmp(funcStr, "ledbrightness") == 0) {
+    handleLEDBrightness2();
+  } else if (strcmp(funcStr, "pixel") == 0) {
+    handlePixel2();
+  } else if (strcmp(funcStr, "shape") == 0) {
+    handleShape2();
+  } else if (strcmp(funcStr, "animateText") == 0) {
+    animateText2();
+  } else if (strcmp(funcStr, "2darray") == 0) {
+    handle2DArray2();
+  } else if (strcmp(funcStr, "clearbeforerender") == 0) {
+    clearBeforeRender2();
+  } else if (strcmp(funcStr, "qr") == 0) {
+    qr();
+  } else if (strcmp(funcStr, "bytearray") == 0) {
+    set_ByteArray_to_Display();
+  } else if (strcmp(funcStr, "serialprint") == 0) {
+    print2Serial();
+  } else if (strcmp(funcStr, "bytearr") == 0) {
+    handleByteArr2Display();
+  } else {
+    server.send(400, "text/plain", "Unknown function: " + func_name);
+  }
+}

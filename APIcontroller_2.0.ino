@@ -3,10 +3,13 @@
 #include <Adafruit_SSD1306.h>
 #include <Adafruit_GFX.h>
 
+#ifndef WiFi_h
 #include <ESP8266WiFi.h>
+#endif
 
 #include <../../APIcontroller_2.0/httptext.h>
 #include <../../APIcontroller_2.0/wifiConfig.h>
+
 
 
 // Create a web server on port 80
@@ -30,6 +33,7 @@ bool displayArray[SCREEN_WIDTH][SCREEN_HEIGHT];
 void func();
 // Setup function to initialize the board
 void setup() {
+
   Serial.begin(115200);
 
   // Setup LED
@@ -77,7 +81,7 @@ void setup() {
   display.setCursor(0, 0);              // Set text position
   display.print("#WIFI#\nconnecting");  // Print the received message
   display.display();
-  
+
   IPAddress Self_IPv4 = connectWIFI();
   Serial.println("IP ADDRESS : ");
   Serial.println(Self_IPv4);

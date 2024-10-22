@@ -6,13 +6,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ESP8266 API Controller</title>
     <style>
+        :root {
+            --GRAY3: #333;
+            --brand-hue: 211;
+            --btn-bg: hsl(var(--brand-hue), 100%, 50%);
+            --btn-bg-hover: hsl(var(--brand-hue), 100%, 35%);
+            --off-white: #ddd;
+            --white99: #f8f9fa;
+            --white: white;
+            --black: black;
+
+            --brand-warning: hsl(16, 100%, 50%);
+            --brand-warning-dark: hsl(16, 100%, 20%);
+            --brand-warning-light: hsl(16, 100%, 75%);
+        }
+
         body {
             font-family: Arial, sans-serif;
             margin: 20px;
         }
 
         h1 {
-            color: #333;
+            color: var(--GRAY3);
         }
 
         .container {
@@ -28,13 +43,13 @@
             padding: 10px;
             border: none;
             border-radius: 5px;
-            background-color: #007BFF;
-            color: white;
+            background-color: var(--btn-bg);
+            color: var(--white);
             cursor: pointer;
         }
 
         .button:hover {
-            background-color: #0056b3;
+            background-color: var(--btn-bg-hover);
         }
 
         input[type="text"],
@@ -43,14 +58,14 @@
             margin: 5px;
             padding: 10px;
             border-radius: 5px;
-            border: 1px solid #ddd;
+            border: 1px solid var(--off-white);
         }
 
         textarea {
             margin: 5px;
             padding: 10px;
             border-radius: 5px;
-            border: 1px solid #ddd;
+            border: 1px solid var(--off-white);
             width: 100%;
             height: 100px;
         }
@@ -58,9 +73,34 @@
         .response {
             margin-top: 10px;
             padding: 10px;
-            border: 1px solid #ddd;
+            border: 1px solid var(--off-white);
             border-radius: 5px;
-            background-color: #f8f9fa;
+            background-color: var(--white99);
+        }
+
+        canvas {
+            border: 5px solid var(--black);
+            margin: 0 auto;
+            box-sizing: border-box;
+            display: block;
+            padding: 3px;
+            background: #ccc;
+
+        }
+
+        #output {
+            border: 2px solid var(--black);
+            background-color: var(--off-white);
+            color: var(--GRAY3);
+            border-radius: 5vw;
+            padding: 2vw;
+
+        }
+
+        #output.error {
+            border-color: currentColor solid;
+            background-color: var(--brand-warning-light);
+            color: var(--brand-warning-dark);
         }
     </style>
 </head>
@@ -68,11 +108,16 @@
 <body>
     <h1>ESP8266 API Controller</h1>
     <div class="container">
+        <div id="output" class=""></div>
         <div class="section">
             <h2>LED Control</h2>
             <button class="button" onclick="sendRequest('/led/on')">Turn LED On</button>
             <button class="button" onclick="sendRequest('/led/off')">Turn LED Off</button>
-            <button class="button" onclick="sendRequest('/led/blink?times=5')">Blink LED</button>
+            <br>
+            <input type="number" id="blinktimes">
+            <button class="button"
+                onclick="sendRequest('/led/blink?times='+(document.getElementById('blinktimes').value | 5 ))">Blink
+                LED</button>
             <input type="number" id="ledBrightness" placeholder="Brightness (0-255)">
             <button class="button" onclick="setLEDBrightness()">Set LED Brightness</button>
         </div>
@@ -119,11 +164,52 @@
             <textarea id="displayArray" placeholder="Enter 128x64 array data as a binary string"></textarea>
             <button class="button" onclick="set2DArray()">Set 2D Array</button>
         </div>
+        <div class="section">
+            <h2>Draw on Canvas</h2>
+            <canvas id="drawCanvas" width="128" height="64"></canvas>
+            <button onclick="sendBytearrData()">Send Canvas Data</button>
+        </div>
+        <div class="section">
+            <h2>Func functionality</h2>
+            <select id="func__funcname">
+                <option value="disp">disp</option>
+                <option value="ledBlink">ledBlink</option>
+                <option value="ledBrightness">ledBrightness</option>
+                <option value="pixel">pixel</option>
+                <option value="shape">shape</option>
+                <option value="animateText">animateText</option>
+                <option value="2DArray">2DArray</option>
+                <option value="clearBeforeRender">clearBeforeRender</option>
+                <option value="qr">qr</option>
+                <option value="bytearray">bytearray</option>
+                <option value="serialprint">serialprint</option>
+                <option value="bytearr" selected>bytearr</option>
+            </select>
+            <input id="func__funcbody" type="text" placeholder="{helptext : 'body of function'}">
+            <button onclick="sendfunc()">Send Canvas Data</button>
+        </div>
     </div>
-    <div id="response" class="response"></div>
     <script>
-        async function func(b) { return await sendRequest("/func", "POST", b, console.log); }
-        async function sendRequest(endpoint, method = 'GET', body = null, outfunc = alert) {
+        "use strict";
+        window.autoupdate = true;
+        function serverOut(OUTPUT_CODE, ...texts) {
+            console.log(OUTPUT_CODE, ...texts)
+            let error = OUTPUT_CODE;
+            let text = "";
+            if (error)
+                text += "ERROR : \n";
+
+            text += texts.map(e => typeof e == "string" ? e : JSON.stringify(e)).join("\n");
+            // alert(text)
+            let output = document.getElementById("output");
+            output.innerText = text;
+            if (error)
+                output.classList.add("error")
+            else
+                output.classList.remove("error")
+        }
+        async function func(b) { console.log(b); return await sendRequest("/func", "POST", b); }
+        async function sendRequest(endpoint, method = 'GET', body = null, outfunc = serverOut) {
             let options = { method };
             if (body) {
                 options.headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
@@ -132,13 +218,13 @@
             try {
                 const response = await fetch(endpoint, options);
                 const data = await response.text();
-                outfunc(data);  // Display response in an alert box
+                outfunc(0, data);  // Display response in an alert box
             } catch (error) {
-                alert('Error: ' + error);
+                outfunc(1, error, "endpoint : ", endpoint, "options : ", options);
             }
         }
         function setLEDBrightness() {
-            const brightness = document.getElementById('ledBrightness').value;
+            const brightness = 255 - (document.getElementById('ledBrightness').value % 255);
             if (brightness !== '') {
                 sendRequest('/led/brightness', 'POST', { level: brightness });
             }
@@ -225,7 +311,145 @@
                 const params = { plain: arrayData };
                 sendRequest('/setArray', 'POST', params);
             }
-        } 
+        }
+        const canvas = document.getElementById('drawCanvas');
+        const ctx = canvas.getContext('2d');
+        let drawing = false;
+        // let td = new TextDecoder();
+        // let td = new TextDecoder("latin1")
+        charset = Array(0x100).fill().map((e,i)=>String.fromCharCode(i)).join("");
+        let code2char = n => charset[n];
+        // both are same
+        // let td = new TextDecoder("ISO-8859-1")
+        function canvas2ASCII(threshold = 128, displayArea = 128 * 64) {
+            let h = ctx.getImageData(0, 0, canvas.width, canvas.height, {
+                "colorSpace": "display-p3", "willReadFrequently": true
+            }).data;
+            // the sum of total painted pixel
+            let hsum = h.reduce((s, cv) => s + (cv > 1))
+            let e = Array(displayArea);
+            for (let i = 0; i < h.length / 4 && h[i * 4 + 3] < h.length; i++) {
+                e[i] = (h[i * 4 + 3])
+            }
+            let gs = new Uint8Array(displayArea / 4);
+            // gs.forEach((e, i) => gs[i] = 4);
+            for (let i = 0; i < gs.length; i++) {
+                // gs[i] =( e[i * 4 + 0] > threshold?0<<j:0 ) +( e[i * 4 + 1] > threshold?0<<j:0 ) +( e[i * 4 + 2] > threshold?0<<j:0 ) +( e[i * 4 + 3] > threshold?0<<j:0 ) ;
+                gs[i] = Array(8).fill(null).reduce(
+                    (sum, cv, j, arr) => sum | (
+                        (e[i * 4 + j] > threshold) ? 1 << j : 0
+                    )
+                );
+
+            }
+            // let s = td.decode(gs);
+            let s = String.fromCharCode(...gs)
+            s = s.replace(/\x00{0,}$/g, "").replace("\x00","\x10");
+            // console.log(h,hsum,e,gs,s);
+            // .forEach(ForEachPixel);
+            // function ForEachPixel(e, i, arr) {
+            //     e
+            // }
+            return s;
+
+            const uint8ArrayToBase64 = (uint8Array) => {
+                // Convert Uint8Array to Base64 string
+                let binaryString = '';
+                const len = uint8Array.length;
+                for (let i = 0; i < len; i++) {
+                    binaryString += String.fromCharCode(uint8Array[i]);
+                }
+                return window.btoa(binaryString);
+            };
+
+        }
+
+
+        function sendfunc() {
+            let f = {
+                name: document.getElementById("func__funcname").value,
+                body: document.getElementById("func__funcbody").value,
+            }
+            f.json = JSON.parse(f.body);
+            if (!(f.json?.toString() == '[object Object]')) {
+                return alert("funcbody is not an object;")
+            }
+            document.getElementById("func__funcbody").value = JSON.stringify(f.json);
+            f.json["func"] = f.name;
+            func(f.json);
+        }
+    </script>
+
+    <script>
+
+        // Handle mouse and touch events for drawing
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('touchstart', startDrawing);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('touchend', stopDrawing);
+        canvas.addEventListener('onblur', stopDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('touchmove', draw);
+
+        function startDrawing(e) {
+            drawing = true;
+            ctx.beginPath();
+            ctx.moveTo(getX(e), getY(e));
+        }
+
+        function stopDrawing() {
+            drawing = false;
+            ctx.closePath();
+        }
+
+        function draw(e) {
+            if (!drawing) return;
+            ctx.lineTo(getX(e), getY(e));
+            ctx.stroke();
+        }
+
+        function getX(e) {
+            return e.touches && false ? e.touches[0].clientX - canvas.offsetLeft : e.offsetX;
+        }
+
+        function getY(e) {
+            return e.touches && false ? e.touches[0].clientY - canvas.offsetTop : e.offsetY;
+        }
+
+        // Convert canvas data to binary string (1 byte = 8 pixels)
+        function canvasToByteArray() {
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+            let byteArray = [];
+
+            for (let y = 0; y < canvas.height; y++) {
+                for (let x = 0; x < canvas.width; x += 8) {
+                    let byte = 0;
+
+                    for (let bit = 0; bit < 8; bit++) {
+                        const index = (y * canvas.width + (x + bit)) * 4;
+                        const brightness = (imageData[index] + imageData[index + 1] + imageData[index + 2]) / 3;
+                        const pixelValue = brightness < 128 ? 1 : 0;
+                        byte |= (pixelValue << (7 - bit)); // Build the byte with each bit
+                    }
+
+                    byteArray.push(String.fromCharCode(byte)); // Add byte to string
+                }
+            }
+
+            return byteArray.join();
+        }
+
+        // Send the canvas data to the server
+        function sendCanvasData() {
+            const byteArray = canvasToByteArray();
+            // sendRequest('/setBinArray', 'POST', { ByteArray: byteArray });
+            func({ "func": "ByteArray", "ByteArray": byteArray });
+        }
+        function sendBytearrData() {
+            const byteArray = canvas2ASCII();
+            // sendRequest('/setBinArray', 'POST', { ByteArray: byteArray });
+            func({ "func": "bytearr", "data": byteArray,"clear":"","escape_char":16 });
+        }
     </script>
 </body>
 
