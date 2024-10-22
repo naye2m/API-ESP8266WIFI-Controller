@@ -24,4 +24,5 @@ std::string utf8_to_iso_8859_1(const std::string &utf8_str) {
   }
   return latin1_str;
 }
+
 #endif
