@@ -54,7 +54,7 @@ void setup() {
   // display.dim(true)
   // display.
   // display.
-  for (int i = 0; i < 1 * 60; i++) {
+  for (int i = 0; i < 32; i++) {
     display.clearDisplay();
     display.setCursor(64, 32);
     display.print("Hello\n");
@@ -73,32 +73,28 @@ void setup() {
   display.setCursor(0, 0);     // Set text position
   display.print("#Booting#");  // Print the received message
   display.display();
-  delay(1000);
+  delay(400);
   display.clearDisplay();
   display.display();
 
   // Connect to WiFi
+  display.clearDisplay();
   display.setCursor(0, 0);              // Set text position
   display.print("#WIFI#\nconnecting");  // Print the received message
   display.display();
-
-  IPAddress Self_IPv4 = connectWIFI();
+  Serial.println("Connecting to WiFi...");
+IPAddress Self_IPv4 = connectWIFI();
   Serial.println("IP ADDRESS : ");
   Serial.println(Self_IPv4);
-  Serial.println("Connecting to WiFi...");
-
-  delay(1000);
+  // delay(1000);
   display.clearDisplay();
-  display.display();
   display.setCursor(0, 0);             // Set text position
   display.print("#WIFI#\nconnected");  // Print the received message
   display.display();
-  delay(1000);
-  display.clearDisplay();
-  display.display();
+  delay(500);
   Serial.println("WiFi connected");
   Serial.println(Self_IPv4);  // Print the IP address
-
+    
 
 
   // API Endpoints
