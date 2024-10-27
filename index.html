@@ -15,7 +15,6 @@
             --white99: #f8f9fa;
             --white: white;
             --black: black;
-
             --brand-warning: hsl(16, 100%, 50%);
             --brand-warning-dark: hsl(16, 100%, 20%);
             --brand-warning-light: hsl(16, 100%, 75%);
@@ -38,6 +37,7 @@
             margin-bottom: 20px;
         }
 
+        button,
         .button {
             margin: 5px;
             padding: 10px;
@@ -85,7 +85,6 @@
             display: block;
             padding: 3px;
             background: #ccc;
-
         }
 
         #output {
@@ -94,7 +93,6 @@
             color: var(--GRAY3);
             border-radius: 5vw;
             padding: 2vw;
-
         }
 
         #output.error {
@@ -167,7 +165,22 @@
         <div class="section">
             <h2>Draw on Canvas</h2>
             <canvas id="drawCanvas" width="128" height="64"></canvas>
+            <br>
+            <select name="savedCanvasSelector" id="savedCanvasSelector">
+                <option value="" disabled selected>select</option>
+            </select>
+            <br>
+            <label for="canvasOnloadCleanPrevious">Clean Before Loading : </label>
+            <input type="checkbox" name="canvasOnloadCleanPrevious" id="canvasOnloadCleanPrevious">
+            <br>
+            <button onclick="savedCanvases.set2canvas()">Set Data</button>
+            <button onclick="savedCanvases.save()">Save Data</button>
+            <br>
+            <br>
+            <button onclick="cleanCanvas()">Clear Canvas</button>
+            <br>
             <button onclick="sendBytearrData()">Send Canvas Data</button>
+
         </div>
         <div class="section">
             <h2>Func functionality</h2>
@@ -190,15 +203,20 @@
         </div>
     </div>
     <script>
+        //  global consts
+        const ERROR_CODE = 1;
+        const SUCCESS_CODE = 0;
+    </script>
+    <script>
         "use strict";
         window.autoupdate = true;
+        let show_res = serverOut;
         function serverOut(OUTPUT_CODE, ...texts) {
             console.log(OUTPUT_CODE, ...texts)
             let error = OUTPUT_CODE;
             let text = "";
             if (error)
                 text += "ERROR : \n";
-
             text += texts.map(e => typeof e == "string" ? e : JSON.stringify(e)).join("\n");
             // alert(text)
             let output = document.getElementById("output");
@@ -208,7 +226,10 @@
             else
                 output.classList.remove("error")
         }
-        async function func(b) { console.log(b); return await sendRequest("/func", "POST", b); }
+        async function func(b) {
+            console.log(b);
+            return await sendRequest("/func", "POST", b);
+        }
         async function sendRequest(endpoint, method = 'GET', body = null, outfunc = serverOut) {
             let options = { method };
             if (body) {
@@ -224,11 +245,79 @@
             }
         }
         function setLEDBrightness() {
-            const brightness = 255 - (document.getElementById('ledBrightness').value % 255);
-            if (brightness !== '') {
-                sendRequest('/led/brightness', 'POST', { level: brightness });
-            }
+            const brightness = document.getElementById('ledBrightness').value;
+            if (brightness == '')
+                return show_res(1, "Brightness value is empty.")
+            brightness = parseInt(brightness);
+            if (brightness > 0xff)
+                brightness = 0xff;
+            if (brightness < 0x0)
+                brightness = 0x0;
+            sendRequest('/led/brightness', 'POST', { level: brightness });
         }
+        let cleanCanvas = () => ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const savedCanvases = {
+            getNames() { return Object.keys(this).filter(e => !['getNames', 'getByIndex', 'getByName', 'save', 'set', 'getHTMLobj', 'canvasSelectorElem', 'iscleanElem', 'updateUI', 'set2canvas'].includes(e)) },
+            getByIndex(i) { return this.getNames()[i] },
+            getByName(name) {
+                let imageData = this[name];
+                if (imageData)
+                    return imageData
+                // return this[name] || this.getByIndex(+name) || null
+                let names = this.getNames();
+                while (names.length >= 2) {
+                    names = names.filter(
+                        e => e.includes(
+                            prompt(
+                                "Enter part of search\n" + names.map(
+                                    (e, i) => `${i}. ${e}`).join("\n")
+                            )));
+                    // Object.keys(person).filter(e => e.includes(e))
+                }
+                if (!names)
+                    return show_res(ERROR_CODE, `No Saved Image found by given name`) || undefined;
+                return this[names[0]];
+            },
+            save() {
+                let timestamp = new Date().toJSON();
+                let name = prompt("Input Canvas name (for saving).", "Untitled") ?? "Untitled";
+                name += " - " + timestamp;
+                let datanow = getCurrentCanvasImageData();
+                this[name] = datanow;
+                this.updateUI();
+                console.log(this)
+            },
+            set(name, isclean, x = 0, y = 0) {
+                console.log(this)
+                let imageData = this.getByName(name);
+                if (!imageData)
+                    return show_res(ERROR_CODE, `No Saved Image named ${name} found`);
+                if (isclean)
+                    cleanCanvas();
+                ctx.putImageData(imageData, x, y)
+                return show_res(
+                    SUCCESS_CODE,
+                    `masked ${name} and ${isclean ? "cleaned" : "keeped"} old data`
+                );
+            },
+            getHTMLobj() {
+                return '<option value="" disabled selected>select</option>' + this.getNames()
+                    .map((e, i) => {
+                        let options = document.createElement("option");
+                        options.value = e;
+                        options.textContent = "" + (i + 1) + " . " + e;
+                        return options.outerHTML;
+                    }).join("")
+            },
+            canvasSelectorElem: document.getElementById("savedCanvasSelector"),
+            iscleanElem: document.getElementById("canvasOnloadCleanPrevious"),
+            updateUI() {
+                this.canvasSelectorElem.innerHTML = this.getHTMLobj();
+            },
+            set2canvas() {
+                this.set(this.canvasSelectorElem.value, this.iscleanElem.checked)
+            }
+        };
         function displayText() {
             const text = document.getElementById('displayText').value;
             const size = document.getElementById('textSize').value;
@@ -312,59 +401,52 @@
                 sendRequest('/setArray', 'POST', params);
             }
         }
+        function getCurrentCanvasImageData() {
+            return ctx.getImageData(0, 0, canvas.width, canvas.height, {
+                // "colorSpace": "display-p3", 
+                "willReadFrequently": true
+            });
+        }
         const canvas = document.getElementById('drawCanvas');
         const ctx = canvas.getContext('2d');
-        let drawing = false;
         // let td = new TextDecoder();
         // let td = new TextDecoder("latin1")
-        charset = Array(0x100).fill().map((e,i)=>String.fromCharCode(i)).join("");
+        const charset = Array(0x100).fill().map((e, i) => String.fromCharCode(i)).join("");
         let code2char = n => charset[n];
         // both are same
         // let td = new TextDecoder("ISO-8859-1")
         function canvas2ASCII(threshold = 128, displayArea = 128 * 64) {
-            let h = ctx.getImageData(0, 0, canvas.width, canvas.height, {
-                "colorSpace": "display-p3", "willReadFrequently": true
-            }).data;
+            const bytelen = 8;
+            let imageData = getCurrentCanvasImageData().data;
             // the sum of total painted pixel
-            let hsum = h.reduce((s, cv) => s + (cv > 1))
-            let e = Array(displayArea);
-            for (let i = 0; i < h.length / 4 && h[i * 4 + 3] < h.length; i++) {
-                e[i] = (h[i * 4 + 3])
+            let hsum = imageData.reduce((s, cv) => s + (cv > 1))
+            let arrOfpx = Array(displayArea);
+            // for (let pxLoc = 0; (pxLoc < imageData.length / 4) && imageData[pxLoc * bytelen + 3] < imageData.length; pxLoc++) {
+            for (let pxLoc = 0; (pxLoc < imageData.length / 4) && (pxLoc * 4 + 3) < imageData.length; pxLoc++) {
+                arrOfpx[pxLoc] = (imageData[pxLoc * 4 + 3])
             }
-            let gs = new Uint8Array(displayArea / 4);
-            // gs.forEach((e, i) => gs[i] = 4);
-            for (let i = 0; i < gs.length; i++) {
-                // gs[i] =( e[i * 4 + 0] > threshold?0<<j:0 ) +( e[i * 4 + 1] > threshold?0<<j:0 ) +( e[i * 4 + 2] > threshold?0<<j:0 ) +( e[i * 4 + 3] > threshold?0<<j:0 ) ;
-                gs[i] = Array(8).fill(null).reduce(
-                    (sum, cv, j, arr) => sum | (
-                        (e[i * 4 + j] > threshold) ? 1 << j : 0
+            let reducedArr = new Uint8Array(displayArea / bytelen);
+            for (let i = 0; i < reducedArr.length; i++) {
+                reducedArr[i] = Array(bytelen).fill().reduce(
+                    (sum, cv, bitPos, arr) => sum | (
+                        // (arrOfpx[i * bytelen + bitPos] > threshold) ? 1 << (bytelen - (bitPos + 1)) : 0
+                        (arrOfpx[i * bytelen + bitPos] > threshold) ? 1 << (bytelen - (bitPos + 1)) : 0
                     )
                 );
-
             }
-            // let s = td.decode(gs);
-            let s = String.fromCharCode(...gs)
-            s = s.replace(/\x00{0,}$/g, "").replace("\x00","\x10");
-            // console.log(h,hsum,e,gs,s);
-            // .forEach(ForEachPixel);
-            // function ForEachPixel(e, i, arr) {
-            //     e
-            // }
+            let s = String.fromCharCode(...reducedArr)
+            s = s.replace(/\x00{0,}$/g, "").replaceAll("\x10", "\x08").replaceAll("\x00", "\x10");
             return s;
-
-            const uint8ArrayToBase64 = (uint8Array) => {
-                // Convert Uint8Array to Base64 string
-                let binaryString = '';
-                const len = uint8Array.length;
-                for (let i = 0; i < len; i++) {
-                    binaryString += String.fromCharCode(uint8Array[i]);
-                }
-                return window.btoa(binaryString);
-            };
-
         }
-
-
+        const uint8ArrayToBase64 = (uint8Array) => {
+            // Convert Uint8Array to Base64 string
+            let binaryString = '';
+            const len = uint8Array.length;
+            for (let i = 0; i < len; i++) {
+                binaryString += String.fromCharCode(uint8Array[i]);
+            }
+            return window.btoa(binaryString);
+        };
         function sendfunc() {
             let f = {
                 name: document.getElementById("func__funcname").value,
@@ -379,76 +461,53 @@
             func(f.json);
         }
     </script>
-
     <script>
-
         // Handle mouse and touch events for drawing
         canvas.addEventListener('mousedown', startDrawing);
-        canvas.addEventListener('touchstart', startDrawing);
         canvas.addEventListener('mouseup', stopDrawing);
-        canvas.addEventListener('touchend', stopDrawing);
-        canvas.addEventListener('onblur', stopDrawing);
+        canvas.addEventListener('blur', stopDrawing);
+        canvas.addEventListener('mouseleave', stopDrawing);
         canvas.addEventListener('mousemove', draw);
-        canvas.addEventListener('touchmove', draw);
-
+        canvas.addEventListener('touchstart', startDrawing, { passive: false });
+        canvas.addEventListener('touchend', stopDrawing);
+        canvas.addEventListener('touchcancel', stopDrawing);
+        canvas.addEventListener('touchmove', draw, { passive: false });
+        let drawing = false; // Make sure we define this flag
         function startDrawing(e) {
+            e.preventDefault(); // Prevent default touch behavior (like scrolling)
             drawing = true;
             ctx.beginPath();
             ctx.moveTo(getX(e), getY(e));
         }
-
         function stopDrawing() {
             drawing = false;
             ctx.closePath();
         }
-
         function draw(e) {
+            e.preventDefault(); // Prevent scrolling
             if (!drawing) return;
             ctx.lineTo(getX(e), getY(e));
             ctx.stroke();
         }
-
+        // Get X coordinate based on event type (mouse or touch)
         function getX(e) {
-            return e.touches && false ? e.touches[0].clientX - canvas.offsetLeft : e.offsetX;
-        }
-
-        function getY(e) {
-            return e.touches && false ? e.touches[0].clientY - canvas.offsetTop : e.offsetY;
-        }
-
-        // Convert canvas data to binary string (1 byte = 8 pixels)
-        function canvasToByteArray() {
-            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-            let byteArray = [];
-
-            for (let y = 0; y < canvas.height; y++) {
-                for (let x = 0; x < canvas.width; x += 8) {
-                    let byte = 0;
-
-                    for (let bit = 0; bit < 8; bit++) {
-                        const index = (y * canvas.width + (x + bit)) * 4;
-                        const brightness = (imageData[index] + imageData[index + 1] + imageData[index + 2]) / 3;
-                        const pixelValue = brightness < 128 ? 1 : 0;
-                        byte |= (pixelValue << (7 - bit)); // Build the byte with each bit
-                    }
-
-                    byteArray.push(String.fromCharCode(byte)); // Add byte to string
-                }
+            if (e.type.includes('touch')) {
+                return e.touches[0].pageX - canvas.clientLeft - canvas.offsetLeft;
             }
-
-            return byteArray.join();
+            return e.offsetX;
+        }
+        // Get Y coordinate based on event type (mouse or touch)
+        function getY(e) {
+            if (e.type.includes('touch')) {
+                return e.touches[0].pageY - canvas.clientTop - canvas.offsetTop;
+            }
+            return e.offsetY;
         }
 
-        // Send the canvas data to the server
-        function sendCanvasData() {
-            const byteArray = canvasToByteArray();
-            // sendRequest('/setBinArray', 'POST', { ByteArray: byteArray });
-            func({ "func": "ByteArray", "ByteArray": byteArray });
-        }
         function sendBytearrData() {
             const byteArray = canvas2ASCII();
             // sendRequest('/setBinArray', 'POST', { ByteArray: byteArray });
-            func({ "func": "bytearr", "data": byteArray,"clear":"","escape_char":16 });
+            func({ "func": "bytearr", "data": byteArray, "clear": "", "escape_char": 16 });
         }
     </script>
 </body>

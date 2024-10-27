@@ -279,7 +279,7 @@ void handleByteArr2Display() {
     if (px_byte == escape_char)
       continue;
     if (px_byte != 0) {
-      Serial.printf("\n bytelok(i):%i, px_byte: 0x%x %b \"%c\"\n", i, px_byte, px_byte, px_byte);
+      // Serial.printf("\n bytelok(i):%i, px_byte: 0x%x %b \"%c\"\n", i, px_byte, px_byte, px_byte);
     }
     for (int jx = 0; jx < 8; jx++) {
       int j = (i * 8) + jx;
@@ -289,10 +289,10 @@ void handleByteArr2Display() {
       if (!skipZeros) {
         if ((px_byte >> (7 - jx)) & 1) {
           display.drawPixel(x, y, _1);
-          Serial.printf("\n x:%i y:%i px:0x%x %c\n", x, y, px_byte, px_byte);
+          // Serial.printf("\n x:%i y:%i px:0x%x %c\n", x, y, px_byte, px_byte);
         } else {
           display.drawPixel(x, y, _0);
-          Serial.print(0);
+          // Serial.print(0);
         }
       } else if ((px_byte >> (7 - jx)) & 1)
         display.drawPixel(x, y, _1);
