@@ -163,6 +163,24 @@
             <button class="button" onclick="set2DArray()">Set 2D Array</button>
         </div>
         <div class="section">
+            <h2>Upload an Image and Display it on Canvas</h2>
+
+            <!-- File input for image -->
+            <input type="file" id="imageInput" accept="image/*">
+
+            <br><br>
+
+            <!-- Canvas to display the image -->
+            <legend>
+                input canvas
+                <canvas id="cking_canvas" width="128" height="64"></canvas>
+            </legend>
+            <label for="canvasOnloadCleanPrevious">Clean Before Loading</label>
+            <input type="checkbox" name="canvasOnloadCleanPrevious" id="canvasOnloadCleanPrevious">
+            <br>
+            <button id="inputCanvas" onclick="setCanvas(cking_canvas, window.canvasOnloadCleanPrevious.checked)">Copy
+                input canvas to draw canvas</button>
+
             <h2>Draw on Canvas</h2>
             <canvas id="drawCanvas" width="128" height="64"></canvas>
             <br>
@@ -170,18 +188,33 @@
                 <option value="" disabled selected>select</option>
             </select>
             <br>
-            <label for="canvasOnloadCleanPrevious">Clean Before Loading : </label>
+            <label for="canvasOnloadCleanPrevious">Clean Before Loading: </label>
             <input type="checkbox" name="canvasOnloadCleanPrevious" id="canvasOnloadCleanPrevious">
             <br>
             <button onclick="savedCanvases.set2canvas()">Set Data</button>
             <button onclick="savedCanvases.save()">Save Data</button>
-            <br>
-            <br>
+            <br><br>
+            <button onclick="ctx.fillRect(0,0,128,16)">Black Yellow part</button>
+            <button onclick="ctx.fillRect(0,16,128,64)">Black Yellow part</button>
             <button onclick="cleanCanvas()">Clear Canvas</button>
             <br>
+            <select name="sendDataBitModifier" id="sendDataBitModifier"></select>
             <button onclick="sendBytearrData()">Send Canvas Data</button>
 
+            <br><br>
+
+            <!-- Buttons for applying filters -->
+            <div id="canvasFilter">
+                <label for="filterSelector">Select Filter:</label>
+                <select id="filterSelector"> </select>
+                apply filter: <button onclick="applyFilterToCanvas()">Apply</button>
+
+            </div>
+            <!-- <button onclick="applyFilter('grayscale')">Grayscale</button>
+            <button onclick="applyFilter('sepia')">Sepia</button>
+            <button onclick="applyFilter('bitDisplay')">Bit Display</button> -->
         </div>
+
         <div class="section">
             <h2>Func functionality</h2>
             <select id="func__funcname">
@@ -209,7 +242,10 @@
     </script>
     <script>
         "use strict";
+
         window.autoupdate = true;
+        const canvas = document.getElementById('drawCanvas');
+        const ctx = canvas.getContext('2d');
         let show_res = serverOut;
         function serverOut(OUTPUT_CODE, ...texts) {
             console.log(OUTPUT_CODE, ...texts)
@@ -231,6 +267,9 @@
             return await sendRequest("/func", "POST", b);
         }
         async function sendRequest(endpoint, method = 'GET', body = null, outfunc = serverOut) {
+            if (!window.chengedEndpoint && (window.location.host.startsWith("127.0.0.1") || window.location.host.startsWith("localhost")))
+                window.chengedEndpoint = prompt("enter endpoint", "http://192.168.4.1") + endpoint;
+            endpoint = window.chengedEndpoint || endpoint;
             let options = { method };
             if (body) {
                 options.headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
@@ -255,29 +294,30 @@
                 brightness = 0x0;
             sendRequest('/led/brightness', 'POST', { level: brightness });
         }
-        let cleanCanvas = () => ctx.clearRect(0, 0, canvas.width, canvas.height);
+        let cleanCanvas = () => ctx?.clearRect(0, 0, canvas.width, canvas.height);
         const savedCanvases = {
-            getNames() { return Object.keys(this).filter(e => !['getNames', 'getByIndex', 'getByName', 'save', 'set', 'getHTMLobj', 'canvasSelectorElem', 'iscleanElem', 'updateUI', 'set2canvas'].includes(e)) },
-            getByIndex(i) { return this.getNames()[i] },
+            getNames() {
+                return Object.keys(this).filter(e => !['getNames', 'getByIndex', 'getByName', 'save', 'set', 'getHTMLobj', 'canvasSelectorElem', 'iscleanElem', 'updateUI', 'set2canvas', 'loadsaved'].includes(e));
+            },
+
+            getByIndex(i) {
+                return this.getNames()[i];
+            },
+
             getByName(name) {
                 let imageData = this[name];
-                if (imageData)
-                    return imageData
-                // return this[name] || this.getByIndex(+name) || null
+                if (imageData) return imageData;
+
                 let names = this.getNames();
                 while (names.length >= 2) {
-                    names = names.filter(
-                        e => e.includes(
-                            prompt(
-                                "Enter part of search\n" + names.map(
-                                    (e, i) => `${i}. ${e}`).join("\n")
-                            )));
-                    // Object.keys(person).filter(e => e.includes(e))
+                    names = names.filter(e => e.includes(prompt(
+                        "Enter part of search\n" + names.map((e, i) => `${i}. ${e}`).join("\n")
+                    )));
                 }
-                if (!names)
-                    return show_res(ERROR_CODE, `No Saved Image found by given name`) || undefined;
+                if (!names.length) return show_res(ERROR_CODE, `No Saved Image found by given name`) || undefined;
                 return this[names[0]];
             },
+
             save() {
                 let timestamp = new Date().toJSON();
                 let name = prompt("Input Canvas name (for saving).", "Untitled") ?? "Untitled";
@@ -285,21 +325,45 @@
                 let datanow = getCurrentCanvasImageData();
                 this[name] = datanow;
                 this.updateUI();
-                console.log(this)
+
+                let savedInLocalStorage = JSON.parse(localStorage.getItem("savedCanvases") || "{}");
+                savedInLocalStorage[name] = datanow;
+                localStorage.setItem("savedCanvases", JSON.stringify(savedInLocalStorage));
+
+                // Optional success message:
+                // return show_res(SUCCESS_CODE, `Saved Image ${name} successfully`);
             },
+
+            loadsaved() {
+                let savedInLocalStorage = JSON.parse(localStorage.getItem("savedCanvases") || "{}");
+                let names = Object.keys(savedInLocalStorage);
+                if (names.length === 0) return show_res(ERROR_CODE, `No Saved Image found`);
+
+                // Load all saved canvases into this object
+                for (let savedName in savedInLocalStorage) {
+                    this[savedName] = savedInLocalStorage[savedName];
+                }
+
+                // Assume the last saved name is the default one to load
+                // this.set(names[names.length - 1], true);
+                this.updateUI();
+            },
+
             set(name, isclean, x = 0, y = 0) {
-                console.log(this)
                 let imageData = this.getByName(name);
-                if (!imageData)
-                    return show_res(ERROR_CODE, `No Saved Image named ${name} found`);
-                if (isclean)
-                    cleanCanvas();
-                ctx.putImageData(imageData, x, y)
+                if (!imageData) return show_res(ERROR_CODE, `No Saved Image named ${name} found`);
+
+                if (isclean) cleanCanvas();
+
+                // Ensure ctx is defined in your environment, or use the correct context.
+                ctx.putImageData(imageData, x, y);
+
                 return show_res(
                     SUCCESS_CODE,
-                    `masked ${name} and ${isclean ? "cleaned" : "keeped"} old data`
+                    `masked ${name} and ${isclean ? "cleaned" : "kept"} old data`
                 );
             },
+
             getHTMLobj() {
                 return '<option value="" disabled selected>select</option>' + this.getNames()
                     .map((e, i) => {
@@ -307,17 +371,23 @@
                         options.value = e;
                         options.textContent = "" + (i + 1) + " . " + e;
                         return options.outerHTML;
-                    }).join("")
+                    }).join("");
             },
+
             canvasSelectorElem: document.getElementById("savedCanvasSelector"),
             iscleanElem: document.getElementById("canvasOnloadCleanPrevious"),
+
             updateUI() {
                 this.canvasSelectorElem.innerHTML = this.getHTMLobj();
             },
+
             set2canvas() {
-                this.set(this.canvasSelectorElem.value, this.iscleanElem.checked)
+                this.set(this.canvasSelectorElem.value, this.iscleanElem.checked);
             }
         };
+
+        // Call loadsaved to load any saved canvases on initial page load
+        savedCanvases.loadsaved();
         function displayText() {
             const text = document.getElementById('displayText').value;
             const size = document.getElementById('textSize').value;
@@ -407,36 +477,75 @@
                 "willReadFrequently": true
             });
         }
-        const canvas = document.getElementById('drawCanvas');
-        const ctx = canvas.getContext('2d');
         // let td = new TextDecoder();
         // let td = new TextDecoder("latin1")
         const charset = Array(0x100).fill().map((e, i) => String.fromCharCode(i)).join("");
         let code2char = n => charset[n];
         // both are same
         // let td = new TextDecoder("ISO-8859-1")
-        function canvas2ASCII(threshold = 128, displayArea = 128 * 64) {
-            const bytelen = 8;
-            let imageData = getCurrentCanvasImageData().data;
-            // the sum of total painted pixel
-            let hsum = imageData.reduce((s, cv) => s + (cv > 1))
-            let arrOfpx = Array(displayArea);
-            // for (let pxLoc = 0; (pxLoc < imageData.length / 4) && imageData[pxLoc * bytelen + 3] < imageData.length; pxLoc++) {
-            for (let pxLoc = 0; (pxLoc < imageData.length / 4) && (pxLoc * 4 + 3) < imageData.length; pxLoc++) {
-                arrOfpx[pxLoc] = (imageData[pxLoc * 4 + 3])
+        const pixelCalculators = {
+            alpha: (rgbaData) => rgbaData[3],
+            red: (rgbaData) => rgbaData[0],
+            green: (rgbaData) => rgbaData[1],
+            blue: (rgbaData) => rgbaData[2],
+            luminance: (rgbaData) => {
+                const [r, g, b, a] = rgbaData.map(e => e / 255);
+                const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+                return luminance * 255;
+            },
+            grayscale: (rgbaData) => {
+                const grayscale = (rgbaData[0] + rgbaData[1] + rgbaData[2]) / 3;
+                return grayscale * 255;
+            },
+
+
+        };
+
+        function canvas2ASCII(pixelValFunc = pixelCalculators.luminance, threshold = 128, displayArea = 128 * 64) {
+            applyBWdithering(canvas);
+            let tmp = pixelValFunc
+            pixelValFunc = e => Math.floor(tmp(e));
+            const BYTE_LENGTH = 8;  // Number of bits per byte
+            let imageData = getCurrentCanvasImageData().data;  // Get the current image data from the canvas
+
+            // Calculate the number of pixels painted (non-transparent)
+            let paintedPixelsCount = imageData.reduce((sum, value, index) => {
+                // Check if pixel's alpha value is greater than 1 (i.e., pixel is not fully transparent)
+                //return sum + (imageData[index * 4 + 3] > 1);  // Alpha channel is at index * 4 + 3
+                return sum + (pixelValFunc(imageData.slice(index * 4, (index + 1) * 4)));  // Alpha channel is at index * 4 + 3
+            }, 0);
+
+            let pixelArray = Array(displayArea);  // Create an array to store pixel values
+
+            // Extract the alpha channel values (transparency) for each pixel
+            for (let pixelIndex = 0; pixelIndex < displayArea; pixelIndex++) {
+                // pixelArray[pixelIndex] = imageData[pixelIndex * 4 + 3];  // Store alpha value (transparency)
+                let rgbaData = imageData.slice(pixelIndex * 4, pixelIndex * 4 + 4);
+                pixelArray[pixelIndex] = pixelValFunc(rgbaData);  // Store alpha value (transparency)
             }
-            let reducedArr = new Uint8Array(displayArea / bytelen);
-            for (let i = 0; i < reducedArr.length; i++) {
-                reducedArr[i] = Array(bytelen).fill().reduce(
-                    (sum, cv, bitPos, arr) => sum | (
-                        // (arrOfpx[i * bytelen + bitPos] > threshold) ? 1 << (bytelen - (bitPos + 1)) : 0
-                        (arrOfpx[i * bytelen + bitPos] > threshold) ? 1 << (bytelen - (bitPos + 1)) : 0
-                    )
-                );
+
+            // Create a new array to hold reduced pixel data (converted to bytes)
+            let reducedArray = new Uint8Array(displayArea / BYTE_LENGTH);
+
+            // Convert the pixel data to ASCII representation
+            for (let i = 0; i < reducedArray.length; i++) {
+                reducedArray[i] = Array(BYTE_LENGTH).fill().reduce((byteSum, _, bitPos) => {
+                    // Check if the pixel's alpha value exceeds the threshold and convert to 1 or 0
+                    return byteSum | ((pixelArray[i * BYTE_LENGTH + bitPos] > threshold)
+                        ? (1 << (BYTE_LENGTH - (bitPos + 1)))
+                        : 0);  // Set corresponding bit based on threshold
+                }, 0);
             }
-            let s = String.fromCharCode(...reducedArr)
-            s = s.replace(/\x00{0,}$/g, "").replaceAll("\x10", "\x08").replaceAll("\x00", "\x10");
-            return s;
+
+            // Convert the byte array to a string and replace control characters
+            let asciiString = String.fromCharCode(...reducedArray);
+
+            // Clean up the string: Remove unnecessary null characters and handle special cases
+            asciiString = asciiString.replace(/\x00{0,}$/g, "")  // Remove trailing null characters
+                .replaceAll("\x10", "\x08")  // Convert \x10 to backspace
+                .replaceAll("\x00", "\x10");  // Convert \x00 to space for readability
+
+            return asciiString;
         }
         const uint8ArrayToBase64 = (uint8Array) => {
             // Convert Uint8Array to Base64 string
@@ -461,6 +570,7 @@
             func(f.json);
         }
     </script>
+
     <script>
         // Handle mouse and touch events for drawing
         canvas.addEventListener('mousedown', startDrawing);
@@ -509,6 +619,195 @@
             // sendRequest('/setBinArray', 'POST', { ByteArray: byteArray });
             func({ "func": "bytearr", "data": byteArray, "clear": "", "escape_char": 16 });
         }
+    </script>
+
+    <script>
+        const cking_canvas = document.getElementById("cking_canvas");
+        const drawCanvas = document.getElementById("drawCanvas");
+        const ckctx = cking_canvas.getContext("2d");
+        const drawCtx = drawCanvas.getContext("2d");
+        const imageInput = document.getElementById("imageInput");
+
+        imageInput.addEventListener("change", function (event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    const img = new Image();
+                    img.onload = function () {
+                        // Clear the canvas before drawing the image
+                        ckctx.clearRect(0, 0, cking_canvas.width, cking_canvas.height);
+                        const imgAspectRatio = img.width / img.height;
+                        let newWidth = cking_canvas.width;
+                        let newHeight = cking_canvas.height;
+                        if (img.width / img.height > cking_canvas.width / cking_canvas.height) {
+                            newWidth = cking_canvas.width;
+                            newHeight = newWidth / imgAspectRatio;
+                        } else {
+                            newHeight = cking_canvas.height;
+                            newWidth = newHeight * imgAspectRatio;
+                        }
+                        const x = (cking_canvas.width - newWidth) / 2;
+                        const y = (cking_canvas.height - newHeight) / 2;
+                        ckctx.drawImage(img, x, y, newWidth, newHeight);
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        function setCanvas(canvasToCopy, clean = true) {
+            if (clean)
+                drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height); // Clear the draw canvas before copying
+
+            drawCtx.drawImage(canvasToCopy, 0, 0); // Copy the image from cking_canvas to drawCanvas
+        }
+
+        // Apply selected filter to the drawCanvas
+        const filters = {
+            grayscale: function (rgbaData) {
+                const [r, g, b, a] = rgbaData;
+                const gray = 0.3 * r + 0.59 * g + 0.11 * b;
+                return [gray, gray, gray, a];
+            },
+            sepia: function (rgbaData) {
+                const [r, g, b, a] = rgbaData;
+                const sepia = 0.393 * r + 0.769 * g + 0.189 * b;
+                return [Math.min(255, Math.max(0, sepia + 100)), Math.min(255, Math.max(0, sepia + 50)), Math.min(255, Math.max(0, sepia)), a];
+            },
+            bitDisplay: function (rgbaData, threshold = 128) {
+                const [r, g, b, a] = rgbaData;
+                const gray = 0.3 * r + 0.59 * g + 0.11 * b;
+                const bit = (gray > threshold) ? 1 : 0; // simple binary threshold
+                return [bit * 255, bit * 255, bit * 255, a];
+            },
+            filla0: function (rgbaData, fillRGB = [0, 0, 0], alphaChecker = a => a < 64) {
+
+                // return function (rgbaData) {
+                const [r, g, b, a] = rgbaData;
+                if (alphaChecker(a))
+                    return [...fillRGB, 255]
+                return rgbaData
+                // }
+            },
+            invert: function (rgbaData) {
+                const [r, g, b, a] = rgbaData;
+                return [255 - r, 255 - g, 255 - b, a];
+            },
+            details: function (rgbaData, detailsLevel = 16) {
+                const [r, g, b, a] = rgbaData;
+                return [...[r, g, b].map(e => (e % detailsLevel) * Math.floor(255 / detailsLevel)), a];
+            },
+            enhanceSine: rgbaData => {
+                let [r, g, b, a] = rgbaData;
+                let avg = (r + g + b) / 3
+                let v = (Math.cos(Math.PI * (avg / 255)) + 1) / 2;
+                v = (1 - v) * 255;
+                return [v, v, v, 255]
+            }
+        };
+
+        for (const filterName in filters) {
+            const filteroption = document.createElement("option");
+            filteroption.value = filterName;
+            filteroption.textContent = filterName;
+            document.getElementById("filterSelector").appendChild(filteroption);
+        }
+
+        function applyFilterToCanvas() {
+            const filterType = document.getElementById("filterSelector").value;
+            applyFilter(filterType);
+        }
+        function applyFilter(filterType) {
+            const selectedFilter = filters[filterType];
+            if (!selectedFilter) return; // If the filter is not recognized, do nothing
+
+            modifyCanvas(drawCanvas, selectedFilter); // Apply the selected filter to the drawCanvas
+        }
+
+        function modifyCanvas(canvas, filterFunction) {
+            const ctx = canvas.getContext('2d');
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height, { willReadFrequently: true });
+            const data = imageData.data;
+
+            for (let i = 0; i < data.length; i += 4) {
+                let d = [data[i], data[i + 1], data[i + 2], data[i + 3]];
+
+                [data[i + 0], data[i + 1], data[i + 2], data[i + 3]] = filterFunction(d).map(e => Math.min(255, Math.max(0, e)));
+            }
+            ctx.putImageData(imageData, 0, 0);
+        }
+
+        function modifyCanvas2(canvas, filterFunction) {
+            const ctx = canvas.getContext('2d');
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+
+            for (let i = 0; i < data.length; i += 4) {
+                let rgbaData = [data[i], data[i + 1], data[i + 2], data[i + 3]];
+                const modifiedData = filterFunction(rgbaData);
+                data[i] = modifiedData[0];
+                data[i + 1] = modifiedData[1];
+                data[i + 2] = modifiedData[2];
+                data[i + 3] = modifiedData[3];
+            }
+
+            ctx.putImageData(imageData, 0, 0); // Update the canvas with modified pixel data
+        }
+
+        function applyBWdithering(canvas) {
+            const ctx = canvas.getContext('2d');
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+
+            // Loop through each pixel
+            for (let y = 0; y < canvas.height; y++) {
+                for (let x = 0; x < canvas.width; x++) {
+                    const i = (y * canvas.width + x) * 4; // Index in the image data array
+
+                    // Get the RGB values of the current pixel
+                    let r = data[i];     // Red
+                    let g = data[i + 1]; // Green
+                    let b = data[i + 2]; // Blue
+
+                    // Convert RGB to grayscale using a simple formula
+                    let gray = 0.3 * r + 0.59 * g + 0.11 * b;
+
+                    // Quantize the color (convert to black or white)
+                    let newColor = gray > 128 ? 255 : 0;
+
+                    // Set the new color (black or white) for the pixel
+                    data[i] = data[i + 1] = data[i + 2] = newColor;
+
+                    // Calculate the error between the original grayscale and the quantized value
+                    let error = gray - newColor;
+
+                    // Floyd-Steinberg error diffusion: distribute error to neighboring pixels
+                    if (x + 1 < canvas.width) {
+                        let iRight = ((y * canvas.width + x + 1) * 4);
+                        data[iRight] += error * 7 / 16;
+                    }
+                    if (y + 1 < canvas.height) {
+                        let iDown = (((y + 1) * canvas.width + x) * 4);
+                        data[iDown] += error * 5 / 16;
+                        if (x - 1 >= 0) {
+                            let iDownLeft = (((y + 1) * canvas.width + x - 1) * 4);
+                            data[iDownLeft] += error * 3 / 16;
+                        }
+                        if (x + 1 < canvas.width) {
+                            let iDownRight = (((y + 1) * canvas.width + x + 1) * 4);
+                            data[iDownRight] += error * 1 / 16;
+                        }
+                    }
+                }
+            }
+
+            // Put the modified image data back to the canvas
+            ctx.putImageData(imageData, 0, 0);
+        }
+
+
     </script>
 </body>
 

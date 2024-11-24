@@ -50,10 +50,10 @@ void disp2() {
 
 void qr() {
   if (!server.hasArg("text"))
-    server.send(400, "text/plain", "qr is not define");
+    server.send(400, "text/plain", "qr is not defined in body");
   String text = server.arg("text");
   // Qr(text);
-  server.send(200, "text/plain", "Qr is oot available");
+  server.send(200, "text/plain", "Qr is Not available");
 }
 
 // Function to handle LED blinking

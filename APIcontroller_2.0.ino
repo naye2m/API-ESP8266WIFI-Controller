@@ -10,6 +10,7 @@
 #include <../../APIcontroller_2.0/httptext.h>
 #include <../../APIcontroller_2.0/wifiConfig.h>
 
+bool isLoopRunning = false;
 
 
 // Create a web server on port 80
