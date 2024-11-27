@@ -178,8 +178,8 @@
             <label for="canvasOnloadCleanPrevious">Clean Before Loading</label>
             <input type="checkbox" name="canvasOnloadCleanPrevious" id="canvasOnloadCleanPrevious">
             <br>
-            <button id="inputCanvas" onclick="setCanvas(cking_canvas, window.canvasOnloadCleanPrevious.checked)">Copy
-                input canvas to draw canvas</button>
+            <button id="inputCanvas" onclick="setCanvas(cking_canvas, window.canvasOnloadCleanPrevious.checked)">
+                Copy input canvas to draw canvas</button>
 
             <h2>Draw on Canvas</h2>
             <canvas id="drawCanvas" width="128" height="64"></canvas>
@@ -195,7 +195,7 @@
             <button onclick="savedCanvases.save()">Save Data</button>
             <br><br>
             <button onclick="ctx.fillRect(0,0,128,16)">Black Yellow part</button>
-            <button onclick="ctx.fillRect(0,16,128,64)">Black Yellow part</button>
+            <button onclick="ctx.fillRect(0,16,128,64)">Black Blue part</button>
             <button onclick="cleanCanvas()">Clear Canvas</button>
             <br>
             <select name="sendDataBitModifier" id="sendDataBitModifier"></select>
@@ -297,7 +297,11 @@
         let cleanCanvas = () => ctx?.clearRect(0, 0, canvas.width, canvas.height);
         const savedCanvases = {
             getNames() {
-                return Object.keys(this).filter(e => !['getNames', 'getByIndex', 'getByName', 'save', 'set', 'getHTMLobj', 'canvasSelectorElem', 'iscleanElem', 'updateUI', 'set2canvas', 'loadsaved'].includes(e));
+                return Object.entries(savedCanvases).filter(
+                    e => typeof e[1] == 'string' && e[1]?.startsWith("data:image/png;base64,")
+                ).map(e => e[0]);
+                //return Object.keys(this).filter(e => !['getNames', 'getByIndex', 'getByName', 'save', 'set', 'getHTMLobj', 'canvasSelectorElem', 'iscleanElem', 'updateUI', 'set2canvas', 'loadsaved'].includes(e));
+
             },
 
             getByIndex(i) {
@@ -322,7 +326,7 @@
                 let timestamp = new Date().toJSON();
                 let name = prompt("Input Canvas name (for saving).", "Untitled") ?? "Untitled";
                 name += " - " + timestamp;
-                let datanow = getCurrentCanvasImageData();
+                let datanow = canvas.toDataURL();
                 this[name] = datanow;
                 this.updateUI();
 
@@ -349,14 +353,19 @@
                 this.updateUI();
             },
 
-            set(name, isclean, x = 0, y = 0) {
-                let imageData = this.getByName(name);
-                if (!imageData) return show_res(ERROR_CODE, `No Saved Image named ${name} found`);
+            set(name, isclean = true, x = 0, y = 0) {
+                let dataUrl = this.getByName(name);
+                if (!dataUrl) return show_res(ERROR_CODE, `No Saved Image named ${name} found`);
 
                 if (isclean) cleanCanvas();
 
-                // Ensure ctx is defined in your environment, or use the correct context.
-                ctx.putImageData(imageData, x, y);
+                const img = new Image();
+                img.onload = function (...args) {
+                    console.log(args);
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, x, y);
+                };
+                img.src = dataUrl;
 
                 return show_res(
                     SUCCESS_CODE,
@@ -582,6 +591,7 @@
         canvas.addEventListener('touchend', stopDrawing);
         canvas.addEventListener('touchcancel', stopDrawing);
         canvas.addEventListener('touchmove', draw, { passive: false });
+
         let drawing = false; // Make sure we define this flag
         function startDrawing(e) {
             e.preventDefault(); // Prevent default touch behavior (like scrolling)

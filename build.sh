@@ -24,10 +24,10 @@ html-minifier-terser --remove-attribute-quotes \
 #   echo ""
 #   tail -n +3 httptext.h   # Append lines starting from the third line
 # } > temp.txt
-echo "String homeHTML = R\"HTML_asdlkSJLJfl(" > temp.txt
+echo "char* homeHTML = (char*) R\"HTML_asdlkSJLJfl(" > temp.txt
 cat index.min.html >> temp.txt
 echo "" >> temp.txt
-echo "   )HTML_asdlkSJLJfl\";" >> temp.txt
+echo ")HTML_asdlkSJLJfl\";" >> temp.txt
 
 # Step 3: Move the updated content back to httptext.h
 mv temp.txt httptext.h
