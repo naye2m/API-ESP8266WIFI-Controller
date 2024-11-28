@@ -165,13 +165,10 @@
         <div class="section">
             <h2>Upload an Image and Display it on Canvas</h2>
 
-            <!-- File input for image -->
             <input type="file" id="imageInput" accept="image/*">
 
             <br><br>
-
-            <!-- Canvas to display the image -->
-            <legend>
+           <legend>
                 input canvas
                 <canvas id="cking_canvas" width="128" height="64"></canvas>
             </legend>
@@ -180,8 +177,7 @@
             <br>
             <button id="inputCanvas" onclick="setCanvas(cking_canvas, window.canvasOnloadCleanPrevious.checked)">
                 Copy input canvas to draw canvas</button>
-
-            <h2>Draw on Canvas</h2>
+           <h2>Draw on Canvas</h2>
             <canvas id="drawCanvas" width="128" height="64"></canvas>
             <br>
             <select name="savedCanvasSelector" id="savedCanvasSelector">
@@ -194,25 +190,18 @@
             <button onclick="savedCanvases.set2canvas()">Set Data</button>
             <button onclick="savedCanvases.save()">Save Data</button>
             <br><br>
-            <button onclick="ctx.fillRect(0,0,128,16)">Black Yellow part</button>
-            <button onclick="ctx.fillRect(0,16,128,64)">Black Blue part</button>
+            <button onclick="ctx.fillRect(0,0,128,16)">Lit down Yellow part</button>
+            <button onclick="ctx.fillRect(0,16,128,64)">Lit down Blue part</button>
             <button onclick="cleanCanvas()">Clear Canvas</button>
             <br>
             <select name="sendDataBitModifier" id="sendDataBitModifier"></select>
             <button onclick="sendBytearrData()">Send Canvas Data</button>
-
             <br><br>
-
-            <!-- Buttons for applying filters -->
             <div id="canvasFilter">
                 <label for="filterSelector">Select Filter:</label>
                 <select id="filterSelector"> </select>
                 apply filter: <button onclick="applyFilterToCanvas()">Apply</button>
-
-            </div>
-            <!-- <button onclick="applyFilter('grayscale')">Grayscale</button>
-            <button onclick="applyFilter('sepia')">Sepia</button>
-            <button onclick="applyFilter('bitDisplay')">Bit Display</button> -->
+           </div>
         </div>
 
         <div class="section">
@@ -506,9 +495,7 @@
                 const grayscale = (rgbaData[0] + rgbaData[1] + rgbaData[2]) / 3;
                 return grayscale * 255;
             },
-
-
-        };
+       };
 
         function canvas2ASCII(pixelValFunc = pixelCalculators.luminance, threshold = 128, displayArea = 128 * 64) {
             applyBWdithering(canvas);
@@ -816,9 +803,7 @@
             // Put the modified image data back to the canvas
             ctx.putImageData(imageData, 0, 0);
         }
-
-
-    </script>
+   </script>
 </body>
 
 </html>
