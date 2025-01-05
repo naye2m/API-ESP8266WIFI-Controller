@@ -233,8 +233,9 @@
         "use strict";
 
         window.autoupdate = true;
-        const canvas = document.getElementById('drawCanvas');
-        const ctx = canvas.getContext('2d');
+        <!-- canvas -->
+        const _C = document.getElementById('drawCanvas');
+        const ctx = _C.getContext('2d');
         let show_res = serverOut;
         function serverOut(OUTPUT_CODE, ...texts) {
             console.log(OUTPUT_CODE, ...texts)
@@ -283,7 +284,7 @@
                 brightness = 0x0;
             sendRequest('/led/brightness', 'POST', { level: brightness });
         }
-        let cleanCanvas = () => ctx?.clearRect(0, 0, canvas.width, canvas.height);
+        let cleanCanvas = () => ctx?.clearRect(0, 0, _C.width, _C.height);
         const savedCanvases = {
             getNames() {
                 return Object.entries(savedCanvases).filter(
@@ -315,7 +316,7 @@
                 let timestamp = new Date().toJSON();
                 let name = prompt("Input Canvas name (for saving).", "Untitled") ?? "Untitled";
                 name += " - " + timestamp;
-                let datanow = canvas.toDataURL();
+                let datanow = _C.toDataURL();
                 this[name] = datanow;
                 this.updateUI();
 
@@ -351,7 +352,7 @@
                 const img = new Image();
                 img.onload = function (...args) {
                     console.log(args);
-                    const ctx = canvas.getContext('2d');
+                    const ctx = _C.getContext('2d');
                     ctx.drawImage(img, x, y);
                 };
                 img.src = dataUrl;
@@ -470,7 +471,7 @@
             }
         }
         function getCurrentCanvasImageData() {
-            return ctx.getImageData(0, 0, canvas.width, canvas.height, {
+            return ctx.getImageData(0, 0, _C.width, _C.height, {
                 // "colorSpace": "display-p3", 
                 "willReadFrequently": true
             });
@@ -498,7 +499,7 @@
        };
 
         function canvas2ASCII(pixelValFunc = pixelCalculators.luminance, threshold = 128, displayArea = 128 * 64) {
-            applyBWdithering(canvas);
+            applyBWdithering(_C);
             let tmp = pixelValFunc
             pixelValFunc = e => Math.floor(tmp(e));
             const BYTE_LENGTH = 8;  // Number of bits per byte
@@ -569,15 +570,15 @@
 
     <script>
         // Handle mouse and touch events for drawing
-        canvas.addEventListener('mousedown', startDrawing);
-        canvas.addEventListener('mouseup', stopDrawing);
-        canvas.addEventListener('blur', stopDrawing);
-        canvas.addEventListener('mouseleave', stopDrawing);
-        canvas.addEventListener('mousemove', draw);
-        canvas.addEventListener('touchstart', startDrawing, { passive: false });
-        canvas.addEventListener('touchend', stopDrawing);
-        canvas.addEventListener('touchcancel', stopDrawing);
-        canvas.addEventListener('touchmove', draw, { passive: false });
+        _C.addEventListener('mousedown', startDrawing);
+        _C.addEventListener('mouseup', stopDrawing);
+        _C.addEventListener('blur', stopDrawing);
+        _C.addEventListener('mouseleave', stopDrawing);
+        _C.addEventListener('mousemove', draw);
+        _C.addEventListener('touchstart', startDrawing, { passive: false });
+        _C.addEventListener('touchend', stopDrawing);
+        _C.addEventListener('touchcancel', stopDrawing);
+        _C.addEventListener('touchmove', draw, { passive: false });
 
         let drawing = false; // Make sure we define this flag
         function startDrawing(e) {
@@ -599,14 +600,14 @@
         // Get X coordinate based on event type (mouse or touch)
         function getX(e) {
             if (e.type.includes('touch')) {
-                return e.touches[0].pageX - canvas.clientLeft - canvas.offsetLeft;
+                return e.touches[0].pageX - _C.clientLeft - _C.offsetLeft;
             }
             return e.offsetX;
         }
         // Get Y coordinate based on event type (mouse or touch)
         function getY(e) {
             if (e.type.includes('touch')) {
-                return e.touches[0].pageY - canvas.clientTop - canvas.offsetTop;
+                return e.touches[0].pageY - _C.clientTop - _C.offsetTop;
             }
             return e.offsetY;
         }
@@ -620,9 +621,10 @@
 
     <script>
         const cking_canvas = document.getElementById("cking_canvas");
-        const drawCanvas = document.getElementById("drawCanvas");
+        <!-- drawCanvas -->
+        const dC = document.getElementById("drawCanvas");
         const ckctx = cking_canvas.getContext("2d");
-        const drawCtx = drawCanvas.getContext("2d");
+        const drawCtx = dC.getContext("2d");
         const imageInput = document.getElementById("imageInput");
 
         imageInput.addEventListener("change", function (event) {
@@ -656,7 +658,7 @@
 
         function setCanvas(canvasToCopy, clean = true) {
             if (clean)
-                drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height); // Clear the draw canvas before copying
+                drawCtx.clearRect(0, 0, dC.width, dC.height); // Clear the draw canvas before copying
 
             drawCtx.drawImage(canvasToCopy, 0, 0); // Copy the image from cking_canvas to drawCanvas
         }
@@ -720,7 +722,7 @@
             const selectedFilter = filters[filterType];
             if (!selectedFilter) return; // If the filter is not recognized, do nothing
 
-            modifyCanvas(drawCanvas, selectedFilter); // Apply the selected filter to the drawCanvas
+            modifyCanvas(dC, selectedFilter); // Apply the selected filter to the drawCanvas
         }
 
         function modifyCanvas(canvas, filterFunction) {

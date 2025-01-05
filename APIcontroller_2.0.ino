@@ -144,6 +144,8 @@ void loop() {
 
 // Root handler
 void handleRoot() {
+  server.sendHeader("Content-Encoding", "gzip");
+  // server.send(200, "text/html", homeHTML, sizeof(homeHTML));
   server.send(200, "text/html", homeHTML);
   cleanDisplay();
 }

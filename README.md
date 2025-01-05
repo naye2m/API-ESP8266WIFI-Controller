@@ -36,7 +36,7 @@ an IoT device using HTTP-based communication.
 
 - **Hardware**: ESP8266 Wi-Fi module or compatible device. ( I am using esp8266 )
 - **Software**: Arduino IDE or compatible development environment.
-- **Dependencies**: Ensure all necessary libraries for HTTP, QR code generation, and Wi-Fi are installed.
+- **Dependencies**: Ensure all necessary libraries for HTTP, QR code generation, and Wi-Fi are installed Also run setup.sh to install the necessary dependencies if you like to modify the code.
 
 ## Getting Started
 

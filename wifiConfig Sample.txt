@@ -2,10 +2,8 @@
 #include <ESP8266WiFi.h>
 #endif
 // WiFi Configuration
-// const char* ssid = "Shuvo";
-// const char* password = "shuvo2009";
-const char* ssid = "NAYEEM__0";
-const char* password = "11111111";
+const char* ssid = "><your_ssid>";
+const char* password = "<your_password>";
 IPAddress connectWIFI() {
   IPAddress Self_IPv4;
   WiFi.begin(ssid, password);
