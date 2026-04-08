@@ -1,23 +1,78 @@
-#ifndef WiFi_h
+#pragma once
 #include <ESP8266WiFi.h>
+
+// ---------------- Debug macros ----------------
+#ifndef WIFI_DEBUG
+#define WIFI_DEBUG 0
 #endif
+
+#if WIFI_DEBUG
+  #define DBG_PRINT(x)    Serial.print(x)
+  #define DBG_PRINTLN(x)  Serial.println(x)
+  #define DBG_PRINTF(...) Serial.printf(__VA_ARGS__)
+#else
+  #define DBG_PRINT(x)
+  #define DBG_PRINTLN(x)
+  #define DBG_PRINTF(...)
+#endif
+
 // WiFi Configuration
-const char* ssid = "><your_ssid>";
+const char* ssid     = "<your_ssid>";
 const char* password = "<your_password>";
-IPAddress connectWIFI() {
-  IPAddress Self_IPv4;
-  WiFi.begin(ssid, password);
-  delay(2000);
-  if (WiFi.status() != WL_CONNECTED) {
-    WiFi.begin(ssid, password);
-    delay(5000);
+
+static const char* wifiStatusToStr(wl_status_t s)
+{
+  switch (s)
+  {
+    case WL_IDLE_STATUS:     return "WL_IDLE_STATUS";
+    case WL_NO_SSID_AVAIL:   return "WL_NO_SSID_AVAIL";
+    case WL_SCAN_COMPLETED:  return "WL_SCAN_COMPLETED";
+    case WL_CONNECTED:       return "WL_CONNECTED";
+    case WL_CONNECT_FAILED:  return "WL_CONNECT_FAILED";
+    case WL_CONNECTION_LOST: return "WL_CONNECTION_LOST";
+    case WL_DISCONNECTED:    return "WL_DISCONNECTED";
+    default:                 return "WL_UNKNOWN";
   }
-  if (WiFi.status() != WL_CONNECTED) {
-    WiFi.softAP("Hacker hei bhai hacker hei", "");  // You can also omit the password for an open network
+}
+
+IPAddress connectWIFI()
+{
+  IPAddress selfIPv4;
+
+  DBG_PRINTLN("\n[WiFi] Starting STA mode...");
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password);
+
+  const uint8_t maxRetries = 20; // ~10 seconds (20 * 500ms)
+  for (uint8_t i = 0; i < maxRetries; i++)
+  {
+    wl_status_t st = WiFi.status();
+    DBG_PRINTF("[WiFi] Try %u/%u, status=%s (%d)\n", i + 1, maxRetries, wifiStatusToStr(st), st);
+
+    if (st == WL_CONNECTED)
+    {
+      selfIPv4 = WiFi.localIP();
+      DBG_PRINT("[WiFi] Connected. IP: ");
+      DBG_PRINTLN(selfIPv4);
+      return selfIPv4;
+    }
+    delay(500);
+  }
+
+  DBG_PRINTLN("[WiFi] STA connection failed. Switching to AP mode...");
+  WiFi.mode(WIFI_AP);
+  WiFi.softAP("ESP8266_Config_AP"); // open AP; add password if needed
+  selfIPv4 = WiFi.softAPIP();
+
+  DBG_PRINT("[WiFi] AP started. AP IP: ");
+  DBG_PRINTLN(selfIPv4);
+
+  // Optional: monitor AP clients for some time (no infinite loop)
+  for (uint8_t t = 0; t < 30; t++) // 30 seconds
+  {
+    DBG_PRINTF("[WiFi] AP clients: %d\n", WiFi.softAPgetStationNum());
     delay(1000);
-    Self_IPv4 = WiFi.softAPIP();
-    while (WiFi.status() != WL_CONNECTED) continue;
-  } else
-    Self_IPv4 = WiFi.localIP();
-  return Self_IPv4;
+  }
+
+  return selfIPv4;
 }
