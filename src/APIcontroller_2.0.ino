@@ -7,8 +7,8 @@
 #include <ESP8266WiFi.h>
 #endif
 
-#include <../../APIcontroller_2.0/httptext.h>
-#include <../../APIcontroller_2.0/wifiConfig.h>
+#include <./httptext.h>
+#include <./wifiConfig.h>
 
 bool isLoopRunning = false;
 
