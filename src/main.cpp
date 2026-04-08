@@ -1,3 +1,4 @@
+#include <Arduino.h>
 #include <ESP8266WebServer.h>
 #include <Wire.h>
 #include <Adafruit_SSD1306.h>
@@ -7,8 +8,10 @@
 #include <ESP8266WiFi.h>
 #endif
 
+#include <./handlers.h>
 #include <./httptext.h>
 #include <./wifiConfig.h>
+
 
 bool isLoopRunning = false;
 
@@ -84,7 +87,7 @@ void setup() {
   display.print("#WIFI#\nconnecting");  // Print the received message
   display.display();
   Serial.println("Connecting to WiFi...");
-IPAddress Self_IPv4 = connectWIFI();
+  IPAddress Self_IPv4 = connectWIFI();
   Serial.println("IP ADDRESS : ");
   Serial.println(Self_IPv4);
   // delay(1000);
@@ -135,7 +138,8 @@ IPAddress Self_IPv4 = connectWIFI();
   display.display();
   delay(1000);
 }
-#include <../../APIcontroller_2.0/httpreqfunc.h>
+
+#include <./httpreqfunc.h>
 
 // Loop function to handle HTTP requests
 void loop() {
